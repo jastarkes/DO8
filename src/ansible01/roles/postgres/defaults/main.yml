@@ -1,0 +1,13 @@
+---
+# PostgreSQL configuration
+postgres_db_name: "test_hotels_db"
+postgres_user: "postgres"
+postgres_password: "postgres123"
+postgres_port: 5432
+
+# Table and test data
+table_name: "hotels_info"
+test_data:
+  - { id: 1, name: "Grand Hotel", city: "Moscow", rating: 5 }
+  - { id: 2, name: "City Inn", city: "Saint Petersburg", rating: 4 }
+  - { id: 3, name: "Beach Resort", city: "Sochi", rating: 3 }

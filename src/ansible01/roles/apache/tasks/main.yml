@@ -1,0 +1,31 @@
+---
+- name: Update apt cache (raw)
+  raw: apt update
+  become: yes
+
+- name: Install Apache2 (raw)
+  raw: apt install -y apache2
+  become: yes
+
+- name: Start and enable Apache2 (raw)
+  raw: |
+    systemctl start apache2
+    systemctl enable apache2
+  become: yes
+
+- name: Create custom index.html
+  copy:
+    content: |
+      <html>
+      <head><title>Apache Server on Node02</title></head>
+      <body>
+        <h1>Welcome to Apache on Node02!</h1>
+        <p>This server was configured using Ansible.</p>
+        <p>Server: {{ inventory_hostname }}</p>
+        <p>Date: $(date)</p>
+      </body>
+      </html>
+    dest: /var/www/html/index.html
+    owner: www-data
+    group: www-data
+    mode: '0644'

@@ -1,0 +1,66 @@
+---
+- name: Update apt cache (raw)
+  raw: apt update
+  become: yes
+
+- name: Install PostgreSQL (raw)
+  raw: apt install -y postgresql postgresql-contrib
+  become: yes
+
+- name: Start and enable PostgreSQL (raw)
+  raw: |
+    systemctl start postgresql
+    systemctl enable postgresql
+  become: yes
+
+- name: Set PostgreSQL user password (raw)
+  raw: |
+    sudo -u postgres psql -c "ALTER USER postgres PASSWORD '{{ postgres_password }}';"
+  become: yes
+
+- name: Create database (raw)
+  raw: |
+    sudo -u postgres createdb {{ postgres_db_name }} || true
+  become: yes
+
+- name: Create hotels table (raw)
+  raw: |
+    sudo -u postgres psql -d {{ postgres_db_name }} -c "
+    CREATE TABLE IF NOT EXISTS {{ table_name }} (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(100) NOT NULL,
+      city VARCHAR(50) NOT NULL,
+      rating INTEGER CHECK (rating >= 1 AND rating <= 5)
+    );"
+  become: yes
+
+- name: Insert test data (raw)
+  raw: |
+    sudo -u postgres psql -d {{ postgres_db_name }} -c "
+    INSERT INTO {{ table_name }} (id, name, city, rating) VALUES 
+    (1, 'Grand Hotel', 'Moscow', 5),
+    (2, 'City Inn', 'Saint Petersburg', 4),
+    (3, 'Beach Resort', 'Sochi', 3)
+    ON CONFLICT (id) DO NOTHING;"
+  become: yes
+
+- name: Find PostgreSQL version directory
+  raw: ls -d /etc/postgresql/*/main/ | head -1
+  register: pg_config_dir
+  become: yes
+
+- name: Configure PostgreSQL to accept connections (raw)
+  raw: |
+    PG_DIR=$(ls -d /etc/postgresql/*/main/ | head -1)
+    sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" ${PG_DIR}/postgresql.conf
+  become: yes
+
+- name: Configure PostgreSQL authentication (raw)
+  raw: |
+    PG_DIR=$(ls -d /etc/postgresql/*/main/ | head -1)
+    echo "host all all 0.0.0.0/0 md5" >> ${PG_DIR}/pg_hba.conf
+  become: yes
+
+- name: Restart PostgreSQL (raw)
+  raw: systemctl restart postgresql
+  become: yes
