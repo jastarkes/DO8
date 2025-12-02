@@ -1,0 +1,66 @@
+---
+- name: Update apt cache (raw command)
+  raw: apt update
+  become: yes
+
+- name: Install Docker dependencies (raw command)
+  raw: |
+    apt install -y apt-transport-https ca-certificates curl gnupg lsb-release
+  become: yes
+
+- name: Add Docker GPG key (raw command)
+  raw: |
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+  become: yes
+
+- name: Add Docker repository (raw command)
+  raw: |
+    echo "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+  become: yes
+
+- name: Install Docker and Docker Compose (raw command)
+  raw: |
+    apt update
+    apt install -y docker-ce docker-ce-cli containerd.io docker-compose
+  become: yes
+
+- name: Start and enable Docker (raw command)
+  raw: |
+    systemctl start docker
+    systemctl enable docker
+  become: yes
+
+- name: Add vagrant user to docker group (raw command)
+  raw: usermod -aG docker vagrant
+  become: yes
+
+- name: Create app directory
+  raw: mkdir -p /home/vagrant/app
+  become: yes
+
+- name: Set ownership of app directory
+  raw: chown -R vagrant:vagrant /home/vagrant/app
+  become: yes
+
+- name: Copy docker-compose.yml
+  copy:
+    src: docker-compose.yml
+    dest: /home/vagrant/app/docker-compose.yml
+    owner: vagrant
+    group: vagrant
+    mode: '0644'
+
+- name: Copy services directory
+  copy:
+    src: services/
+    dest: /home/vagrant/app/services/
+    owner: vagrant
+    group: vagrant
+    mode: preserve
+
+- name: Deploy application with Docker Compose
+  raw: |
+    cd /home/vagrant/app
+    docker-compose down || true
+    docker-compose up -d
+  become_user: vagrant
