@@ -1,0 +1,21 @@
+---
+- name: Deploy microservice application
+  hosts: application_servers
+  become: yes
+  roles:
+    - application
+
+- name: Install and configure Apache web server
+  hosts: web_servers
+  become: yes
+  roles:
+    - apache
+
+- name: Install and configure PostgreSQL database
+  hosts: database_servers
+  become: yes
+  roles:
+    - postgres
+  vars:
+    postgres_db_name: "hotels_test_db"
+    postgres_password: "secure_password123"

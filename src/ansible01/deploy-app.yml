@@ -1,0 +1,76 @@
+---
+- name: Deploy microservice application
+  hosts: node01
+  become: yes
+  gather_facts: no
+  
+  tasks:
+    - name: Update apt cache (raw)
+      raw: apt update
+      
+    - name: Install required packages (raw)
+      raw: apt install -y apt-transport-https ca-certificates curl gnupg lsb-release python3-pip
+
+    - name: Add Docker GPG key (raw)
+      raw: curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+
+    - name: Add Docker repository (raw)
+      raw: echo "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable" | tee /etc/apt/sources.list.d/docker.list
+
+    - name: Update apt cache again (raw)
+      raw: apt update
+
+    - name: Install Docker (raw)
+      raw: apt install -y docker-ce
+
+    - name: Install Docker Compose (raw)
+      raw: curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose
+
+    - name: Add vagrant user to docker group (raw)
+      raw: usermod -aG docker vagrant
+
+    - name: Start Docker service (raw)
+      raw: systemctl start docker && systemctl enable docker
+
+    - name: Create application directory
+      file:
+        path: /home/vagrant/app
+        state: directory
+        owner: vagrant
+        group: vagrant
+        mode: '0755'
+
+    - name: Copy docker-compose.yml
+      copy:
+        src: /home/vagrant/docker-compose.yml
+        dest: /home/vagrant/app/docker-compose.yml
+        owner: vagrant
+        group: vagrant
+        mode: '0644'
+
+    - name: Copy services directory
+      copy:
+        src: /home/vagrant/services/
+        dest: /home/vagrant/app/services/
+        owner: vagrant
+        group: vagrant
+        mode: '0755'
+        directory_mode: '0755'
+
+    - name: Deploy application with Docker Compose
+      shell: |
+        cd /home/vagrant/app
+        docker-compose up -d
+      become_user: vagrant
+      environment:
+        PATH: "{{ ansible_env.PATH }}:/usr/local/bin"
+
+    - name: Check running containers
+      shell: docker ps
+      become_user: vagrant
+      register: container_status
+
+    - name: Display container status
+      debug:
+        var: container_status.stdout_lines
+

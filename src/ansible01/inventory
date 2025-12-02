@@ -1,0 +1,11 @@
+[application_servers]
+node01 ansible_host=192.168.56.11 ansible_user=vagrant ansible_ssh_private_key_file=/home/vagrant/.ssh/node01_key
+
+[web_servers]
+node02 ansible_host=192.168.56.12 ansible_user=vagrant ansible_ssh_private_key_file=/home/vagrant/.ssh/node02_key
+
+[database_servers]
+node02 ansible_host=192.168.56.12 ansible_user=vagrant ansible_ssh_private_key_key_file=/home/vagrant/.ssh/node02_key
+
+[all:vars]
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'
