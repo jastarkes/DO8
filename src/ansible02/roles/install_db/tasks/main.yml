@@ -1,0 +1,64 @@
+---
+- name: Update apt cache
+  raw: apt update
+  become: yes
+
+- name: Install PostgreSQL
+  raw: apt install -y postgresql postgresql-contrib
+  become: yes
+
+- name: Start and enable PostgreSQL
+  raw: |
+    systemctl start postgresql
+    systemctl enable postgresql
+  become: yes
+
+- name: Create hotels_db database
+  raw: |
+    sudo -u postgres createdb hotels_db || true
+  become: yes
+
+- name: Set PostgreSQL password
+  raw: |
+    sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+  become: yes
+
+- name: Configure PostgreSQL to accept connections
+  raw: |
+    PG_DIR=$(ls -d /etc/postgresql/*/main/ | head -1)
+    sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" ${PG_DIR}/postgresql.conf
+  become: yes
+
+- name: Configure PostgreSQL authentication
+  raw: |
+    PG_DIR=$(ls -d /etc/postgresql/*/main/ | head -1)
+    echo "host all all 0.0.0.0/0 md5" >> ${PG_DIR}/pg_hba.conf
+  become: yes
+
+- name: Restart PostgreSQL
+  raw: systemctl restart postgresql
+  become: yes
+
+- name: Register PostgreSQL service in Consul
+  copy:
+    content: |
+      {
+        "service": {
+          "name": "postgres",
+          "tags": ["database"],
+          "port": 5432,
+          "check": {
+            "tcp": "localhost:5432",
+            "interval": "10s"
+          }
+        }
+      }
+    dest: /etc/consul.d/postgres.json
+    owner: consul
+    group: consul
+    mode: '0640'
+  become: yes
+
+- name: Reload consul configuration
+  raw: consul reload
+  become: yes

@@ -1,0 +1,81 @@
+---
+- name: Update apt cache
+  raw: apt update
+  become: yes
+
+- name: Install OpenJDK 8 (non-interactive)
+  raw: DEBIAN_FRONTEND=noninteractive apt install -y openjdk-8-jdk
+  become: yes
+
+- name: Create app directory
+  raw: mkdir -p /opt/hotel-service
+  become: yes
+
+- name: Copy hotel service JAR
+  copy:
+    src: hotel-service.jar
+    dest: /opt/hotel-service/hotel-service.jar
+    mode: '0755'
+  become: yes
+
+- name: Create hotel service systemd unit
+  copy:
+    content: |
+      [Unit]
+      Description=Hotel Service
+      After=network.target
+
+      [Service]
+      Type=simple
+      User=root
+      WorkingDirectory=/opt/hotel-service
+      ExecStart=/usr/bin/java -jar hotel-service.jar
+      Environment=POSTGRES_HOST={{ postgres_host }}
+      Environment=POSTGRES_PORT={{ postgres_port }}
+      Environment=POSTGRES_DB={{ postgres_db }}
+      Environment=POSTGRES_USER={{ postgres_user }}
+      Environment=POSTGRES_PASSWORD={{ postgres_password }}
+      Restart=always
+      RestartSec=10
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/hotel-service.service
+    mode: '0644'
+  become: yes
+
+- name: Start and enable hotel service
+  raw: |
+    systemctl daemon-reload
+    systemctl enable hotel-service
+    systemctl start hotel-service
+  become: yes
+
+- name: Wait for service to start
+  raw: sleep 30
+  become: yes
+
+- name: Register hotel service in Consul
+  copy:
+    content: |
+      {
+        "service": {
+          "name": "hotel-service",
+          "tags": ["api", "hotels"],
+          "port": 8082,
+          "check": {
+            "http": "http://localhost:8082/actuator/health",
+            "interval": "10s",
+            "timeout": "3s"
+          }
+        }
+      }
+    dest: /etc/consul.d/hotel-service.json
+    owner: consul
+    group: consul
+    mode: '0640'
+  become: yes
+
+- name: Reload consul configuration
+  raw: consul reload
+  become: yes

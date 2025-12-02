@@ -1,0 +1,78 @@
+---
+- name: Update apt cache
+  raw: apt update
+  become: yes
+
+- name: Create consul user
+  raw: useradd --system --home /etc/consul.d --shell /bin/false consul || true
+  become: yes
+
+- name: Create consul directories
+  raw: |
+    mkdir -p /opt/consul
+    mkdir -p /etc/consul.d
+    chown -R consul:consul /opt/consul /etc/consul.d
+  become: yes
+
+- name: Copy consul binary
+  copy:
+    src: consul
+    dest: /usr/local/bin/consul
+    mode: '0755'
+    owner: root
+    group: root
+  become: yes
+
+- name: Verify Consul installation
+  raw: /usr/local/bin/consul version
+  become: yes
+
+- name: Copy consul server configuration
+  copy:
+    src: consul_server.hcl
+    dest: /etc/consul.d/consul.hcl
+    owner: consul
+    group: consul
+    mode: '0640'
+  become: yes
+
+- name: Create consul systemd service
+  copy:
+    content: |
+      [Unit]
+      Description=Consul
+      Documentation=https://www.consul.io/
+      Requires=network-online.target
+      After=network-online.target
+      ConditionFileNotEmpty=/etc/consul.d/consul.hcl
+
+      [Service]
+      Type=notify
+      User=consul
+      Group=consul
+      ExecStart=/usr/local/bin/consul agent -config-dir=/etc/consul.d/
+      ExecReload=/bin/kill -HUP $MAINPID
+      KillMode=process
+      Restart=on-failure
+      LimitNOFILE=65536
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/consul.service
+    mode: '0644'
+  become: yes
+
+- name: Start and enable consul
+  raw: |
+    systemctl daemon-reload
+    systemctl enable consul
+    systemctl start consul
+  become: yes
+
+- name: Wait for Consul to start
+  raw: sleep 10
+  become: yes
+
+- name: Check Consul status
+  raw: systemctl status consul --no-pager
+  become: yes
